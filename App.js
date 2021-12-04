@@ -10,6 +10,8 @@ import type {Node} from 'react';
 import React, {useEffect, useState} from 'react';
 import {Colors, Header} from 'react-native/Libraries/NewAppScreen';
 import {getUserInfo, saveUserInfo, sendSMS} from './service/SmsService';
+import SmsListener from 'react-native-android-sms-listener';
+
 import {
   SafeAreaView,
   ScrollView,
@@ -22,53 +24,22 @@ import {
 } from 'react-native';
 
 const App: () => Node = () => {
-  const [user, setUser] = useState();
-
   useEffect(() => {
-    init();
+    let subscription = SmsListener.addListener(message => {
+      Alert.alert('', JSON.stringify({message}, null, 2));
+      let verificationCodeRegex = /Your verification code: ([\d]{6})/;
+
+      if (verificationCodeRegex.test(message.body)) {
+        let verificationCode = message.body.match(verificationCodeRegex)[1];
+        Alert.alert('', JSON.stringify({verificationCode}, null, 2));
+      }
+    });
+    return subscription.remove();
   }, []);
-
-  const init = () => {
-    const userData = {
-      name: 'Minhajul Islam',
-      phone: '+8801515272948',
-      body: 'Hello world',
-    };
-    saveUserInfo(userData).then(response => {
-      console.log(response);
-    });
-  };
-
-  // Get user info
-  const onHandleGetUser = async () => {
-    const userData = await getUserInfo();
-    setUser(userData);
-  };
-
-  // Send message to user
-  const onHandleSend = async () => {
-    if (user) {
-      const {phone, body} = user;
-      await sendSMS(phone, body);
-    }
-  };
-
-  // Update user info
-  const updateUserInfo = deliveryStatus => {
-    getUserInfo().then(userData => {
-      userData.deliveryStatus = deliveryStatus;
-      saveUserInfo(userData).then(response => {
-        Alert.alert('SMS Alert', JSON.stringify(userData));
-      });
-    });
-  };
 
   // Listener for sms delivery
   DeviceEventEmitter.addListener('sms_onDelivery', msg => {
     console.log(msg);
-    if (msg.toString() === 'SMS delivered') {
-      updateUserInfo(true);
-    }
   });
 
   return (
@@ -77,19 +48,6 @@ const App: () => Node = () => {
         contentInsetAdjustmentBehavior="automatic"
         style={styles.backgroundStyle}>
         <Header />
-        <View style={styles.sectionContainer}>
-          <TouchableOpacity style={styles.sendButton} onPress={onHandleGetUser}>
-            <Text>Get User</Text>
-          </TouchableOpacity>
-          <Text style={styles.status}>
-            {user ? JSON.stringify(user) : 'Get use first'}
-          </Text>
-          {user && (
-            <TouchableOpacity style={styles.sendButton} onPress={onHandleSend}>
-              <Text>Send Message</Text>
-            </TouchableOpacity>
-          )}
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
